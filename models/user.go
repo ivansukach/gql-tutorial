@@ -36,7 +36,7 @@ func (u *User) GenerateToken() (*AuthToken, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Audience:  "gql-tutorial-api,gql-tutorial-ui",
 		ExpiresAt: expiresAt.Unix(),
-		Id:        fmt.Sprintf("%s-%d", u.ID, time.Now().Unix()),
+		Id:        fmt.Sprintf("%s", u.ID),
 		IssuedAt:  time.Now().Unix(),
 		Issuer:    "gql-tutorial-api",
 		NotBefore: time.Now().Add(-time.Minute * 2).Unix(),
@@ -52,4 +52,10 @@ func (u *User) GenerateToken() (*AuthToken, error) {
 		AccessToken: accessToken,
 		ExpiredAt:   expiresAt,
 	}, nil
+}
+
+func (u *User) ComparePassword(password string) error {
+	bytePassword := []byte(password)
+	byteHashedPassword := []byte(u.Password)
+	return bcrypt.CompareHashAndPassword(byteHashedPassword, bytePassword)
 }

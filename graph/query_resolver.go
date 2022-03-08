@@ -5,16 +5,17 @@ package graph
 
 import (
 	"context"
+
 	"github.com/ivansukach/gql-tutorial/graph/generated"
 	"github.com/ivansukach/gql-tutorial/models"
 )
 
 func (r *queryResolver) Meetups(ctx context.Context, filter *models.MeetupFilter, limit *int, offset *int) ([]*models.Meetup, error) {
-	return r.MeetupsRepo.GetMeetups(filter, limit, offset)
+	return r.Domain.MeetupsRepo.GetMeetups(filter, limit, offset)
 }
 
 func (r *queryResolver) User(ctx context.Context, id string) (*models.User, error) {
-	return r.UsersRepo.GetUserByID(id)
+	return r.Domain.UsersRepo.GetUserByID(id)
 }
 
 // Query returns generated.QueryResolver implementation.

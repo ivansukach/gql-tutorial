@@ -66,6 +66,7 @@ type ComplexityRoot struct {
 	Mutation struct {
 		CreateMeetup func(childComplexity int, input models.NewMeetup) int
 		DeleteMeetup func(childComplexity int, id string) int
+		Login        func(childComplexity int, input models.LoginInput) int
 		Register     func(childComplexity int, input models.RegisterInput) int
 		UpdateMeetup func(childComplexity int, id string, input models.UpdateMeetup) int
 	}
@@ -92,6 +93,7 @@ type MeetupResolver interface {
 }
 type MutationResolver interface {
 	Register(ctx context.Context, input models.RegisterInput) (*models.AuthResponse, error)
+	Login(ctx context.Context, input models.LoginInput) (*models.AuthResponse, error)
 	CreateMeetup(ctx context.Context, input models.NewMeetup) (*models.Meetup, error)
 	UpdateMeetup(ctx context.Context, id string, input models.UpdateMeetup) (*models.Meetup, error)
 	DeleteMeetup(ctx context.Context, id string) (bool, error)
@@ -198,6 +200,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeleteMeetup(childComplexity, args["id"].(string)), true
+
+	case "Mutation.login":
+		if e.complexity.Mutation.Login == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_login_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.Login(childComplexity, args["input"].(models.LoginInput)), true
 
 	case "Mutation.register":
 		if e.complexity.Mutation.Register == nil {
@@ -367,33 +381,19 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "graph/schema.graphqls", Input: `scalar Time
-
-type AuthToken {
+	{Name: "graph/meetup.graphqls", Input: `type Meetup {
+    id: ID!
+    name: String!
+    description: String!
+    user: User!
+}`, BuiltIn: false},
+	{Name: "graph/mutation.graphqls", Input: `type AuthToken {
   accessToken: String!
   expiredAt: Time!
 }
 
 type AuthResponse {
   authToken: AuthToken!
-  user: User!
-}
-
-type User {
-  id: ID!
-  username: String!
-  email: String!
-  firstName: String!
-  lastName: String!
-  meetups: [Meetup!]!
-  createdAt: Time!
-  updatedAt: Time!
-}
-
-type Meetup {
-  id: ID!
-  name: String!
-  description: String!
   user: User!
 }
 
@@ -404,6 +404,11 @@ input RegisterInput {
   confirmPassword: String!
   firstName: String!
   lastName: String!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
 }
 
 input NewMeetup {
@@ -420,18 +425,31 @@ input MeetupFilter {
   name: String
 }
 
-type Query {
-  meetups(filter: MeetupFilter, limit: Int = 10, offset: Int = 0): [Meetup!]!
-  user(id: ID!): User!
-}
-
 type Mutation{
   register(input: RegisterInput!): AuthResponse!
+  login(input: LoginInput!): AuthResponse!
   createMeetup(input: NewMeetup!): Meetup!
   updateMeetup(id: ID!, input: UpdateMeetup!): Meetup!
   deleteMeetup(id: ID!): Boolean!
 }
 `, BuiltIn: false},
+	{Name: "graph/query.graphqls", Input: `type Query {
+    meetups(filter: MeetupFilter, limit: Int = 10, offset: Int = 0): [Meetup!]!
+    user(id: ID!): User!
+}
+`, BuiltIn: false},
+	{Name: "graph/user.graphqls", Input: `scalar Time
+
+type User {
+    id: ID!
+    username: String!
+    email: String!
+    firstName: String!
+    lastName: String!
+    meetups: [Meetup!]!
+    createdAt: Time!
+    updatedAt: Time!
+}`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -466,6 +484,21 @@ func (ec *executionContext) field_Mutation_deleteMeetup_args(ctx context.Context
 		}
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_login_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 models.LoginInput
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg0, err = ec.unmarshalNLoginInput2githubᚗcomᚋivansukachᚋgqlᚑtutorialᚋmodelsᚐLoginInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -915,6 +948,48 @@ func (ec *executionContext) _Mutation_register(ctx context.Context, field graphq
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Mutation().Register(rctx, args["input"].(models.RegisterInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*models.AuthResponse)
+	fc.Result = res
+	return ec.marshalNAuthResponse2ᚖgithubᚗcomᚋivansukachᚋgqlᚑtutorialᚋmodelsᚐAuthResponse(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_login_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().Login(rctx, args["input"].(models.LoginInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2614,6 +2689,37 @@ func (ec *executionContext) ___Type_ofType(ctx context.Context, field graphql.Co
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputLoginInput(ctx context.Context, obj interface{}) (models.LoginInput, error) {
+	var it models.LoginInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	for k, v := range asMap {
+		switch k {
+		case "email":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("email"))
+			it.Email, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "password":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("password"))
+			it.Password, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputMeetupFilter(ctx context.Context, obj interface{}) (models.MeetupFilter, error) {
 	var it models.MeetupFilter
 	asMap := map[string]interface{}{}
@@ -2945,6 +3051,16 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "register":
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_register(ctx, field)
+			}
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "login":
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_login(ctx, field)
 			}
 
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, innerFunc)
@@ -3655,6 +3771,11 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋivansukachᚋgqlᚑtutorialᚋmodelsᚐLoginInput(ctx context.Context, v interface{}) (models.LoginInput, error) {
+	res, err := ec.unmarshalInputLoginInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNMeetup2githubᚗcomᚋivansukachᚋgqlᚑtutorialᚋmodelsᚐMeetup(ctx context.Context, sel ast.SelectionSet, v models.Meetup) graphql.Marshaler {

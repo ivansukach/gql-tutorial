@@ -40,6 +40,8 @@ func AuthMiddleware(repo repository.UsersRepo) func(handler http.Handler) http.H
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, err := parseToken(r)
 			if err != nil {
+				//if we delete this line, we won't get UI
+				next.ServeHTTP(w, r)
 				//log error
 				//or we could use next.ServeHTTP to go next, because of not every handler require authentication
 				//it seems like http middleware useless in this cases
@@ -47,6 +49,8 @@ func AuthMiddleware(repo repository.UsersRepo) func(handler http.Handler) http.H
 			}
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok && !token.Valid {
+				//if we delete this line, we won't get UI
+				next.ServeHTTP(w, r)
 				//log error
 				//or we could use next.ServeHTTP to go next, because of not every handler require authentication
 				//it seems like http middleware useless in this cases
@@ -54,6 +58,8 @@ func AuthMiddleware(repo repository.UsersRepo) func(handler http.Handler) http.H
 			}
 			user, err := repo.GetUserByID(claims["jti"].(string))
 			if err != nil {
+				//if we delete this line, we won't get UI
+				next.ServeHTTP(w, r)
 				//log error
 				//or we could use next.ServeHTTP to go next, because of not every handler require authentication
 				//it seems like http middleware useless in this cases

@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-pg/pg/v10"
+	"github.com/ivansukach/gql-tutorial/domain"
 	customMiddleware "github.com/ivansukach/gql-tutorial/middleware"
 	"github.com/ivansukach/gql-tutorial/repository"
 	"github.com/rs/cors"
@@ -43,15 +44,16 @@ func main() {
 	router.Use(customMiddleware.AuthMiddleware(usersRepo))
 	defer db.Close()
 	db.AddQueryHook(repository.DBLogger{})
+
+	d := domain.NewDomain(usersRepo, meetupsRepo)
 	c := generated.Config{Resolvers: &graph.Resolver{
-		MeetupsRepo: meetupsRepo,
-		UsersRepo:   usersRepo,
+		Domain: d,
 	}}
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(c))
 
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", graph.DataLoaderMiddleware(db, srv))
+	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	router.Handle("/query", graph.DataLoaderMiddleware(db, srv))
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }
